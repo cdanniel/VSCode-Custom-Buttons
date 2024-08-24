@@ -23,11 +23,14 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deactivate = exports.getDirectory = exports.getPath = exports.activate = void 0;
+exports.activate = activate;
+exports.getPath = getPath;
+exports.getDirectory = getDirectory;
+exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-// Función para cargar comandos desde el archivo
+// Function to load commands from file
 async function loadCommandsFromFile() {
     const options = {
         canSelectMany: false,
@@ -41,7 +44,7 @@ async function loadCommandsFromFile() {
         return fileUri[0].fsPath;
     }
 }
-// Función para leer el archivo de comandos
+// Function to read commands file
 function readCommandsFile(filePath, context) {
     fs.readFile(filePath, 'utf8', (err, data) => {
         if (err) {
@@ -50,7 +53,7 @@ function readCommandsFile(filePath, context) {
         }
         try {
             const commandGroups = JSON.parse(data);
-            // Crear los QuickPicks y comandos
+            // Create QuickPicks and commands
             Object.keys(commandGroups).forEach(groupKey => {
                 const group = commandGroups[groupKey];
                 const quickPickCommand = vscode.commands.registerCommand(`extension.show${group.id}`, async () => {
@@ -83,7 +86,7 @@ function readCommandsFile(filePath, context) {
         }
     });
 }
-// Función para activar la extensión
+// Function to activate the extension
 async function activate(context) {
     const configuration = vscode.workspace.getConfiguration('vscode-custom-buttons');
     let filePath = configuration.get('commandsFilePath');
@@ -102,7 +105,7 @@ async function activate(context) {
         openCommandEditor(filePath, context);
     });
     context.subscriptions.push(commandEditor);
-    // Añadir el botón en la barra de estado para abrir el editor de comandos
+    // Add button to the status bar to open the command editor
     const editorButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     editorButton.command = 'vscode-custom-buttons.openCommandEditor';
     editorButton.text = 'Edit Commands';
@@ -113,11 +116,19 @@ async function activate(context) {
     separatorItem.show();
     context.subscriptions.push(separatorItem);
 }
-exports.activate = activate;
-function updateQuickPicks(context, commandGroups) {
-    // Eliminar todas las suscripciones actuales
-    context.subscriptions.forEach(subscription => subscription.dispose());
-    // Registrar de nuevo los comandos y QuickPicks
+function updateQuickPicks(context, commandGroups, filePath) {
+    // Filter and keep only the first three subscriptions
+    const retainedSubscriptions = context.subscriptions.slice(0, 3);
+    // Dispose of all current subscriptions except the retained ones
+    context.subscriptions.forEach((subscription, index) => {
+        if (!retainedSubscriptions.includes(subscription)) {
+            subscription.dispose();
+        }
+    });
+    // Clear the subscriptions array in the context
+    context.subscriptions.length = 0; // Clear the current array
+    context.subscriptions.push(...retainedSubscriptions); // Add the retained subscriptions
+    // Re-register commands and QuickPicks
     Object.keys(commandGroups).forEach(groupKey => {
         const group = commandGroups[groupKey];
         const quickPickCommand = vscode.commands.registerCommand(`extension.show${group.id}`, async () => {
@@ -145,72 +156,144 @@ function updateQuickPicks(context, commandGroups) {
         context.subscriptions.push(separatorItem);
     });
 }
-// Función para guardar los comandos en el archivo
+// Function to save commands to file
 function saveCommands(filePath, commandGroups, context) {
     try {
         fs.writeFileSync(filePath, JSON.stringify(commandGroups, null, 2));
         vscode.window.showInformationMessage('Commands saved successfully');
-        updateQuickPicks(context, commandGroups);
+        updateQuickPicks(context, commandGroups, filePath);
     }
     catch (e) {
-        vscode.window.showErrorMessage('Error saving commands.json');
+        vscode.window.showErrorMessage('Error saving commands.json: ' + e);
     }
 }
-// Función para añadir un nuevo comando
+// Function to add a new command
 async function addNewCommand(group, filePath, context, commandGroups) {
     const id = await vscode.window.showInputBox({ prompt: 'Enter command ID' });
     if (!id)
         return;
-    const command = await vscode.window.showInputBox({ prompt: 'Enter command' });
+    const command = await vscode.window.showInputBox({ prompt: 'Enter command with arguments in { }', placeHolder: 'command {arg1} {arg2}' });
     if (!command)
         return;
     const description = await vscode.window.showInputBox({ prompt: 'Enter command description' });
     if (!description)
         return;
-    const newCommand = { id, command, description };
+    // Process arguments
+    const argumentMatches = command.match(/{(.*?)}/g);
+    const extraFields = {};
+    if (argumentMatches) {
+        for (const match of argumentMatches) {
+            const argName = match.replace(/[{}]/g, '');
+            const prompt = await vscode.window.showInputBox({ prompt: `Enter prompt for ${argName}` });
+            if (prompt) {
+                extraFields[argName] = prompt;
+            }
+        }
+    }
+    // Check if the command contains {file}
+    let applyToOpenFile = false;
+    if (extraFields.hasOwnProperty('file')) {
+        const useOpenFile = await vscode.window.showQuickPick(['Yes', 'No'], { placeHolder: 'Do you want to apply this command to the currently open file?' });
+        if (useOpenFile === 'Yes') {
+            applyToOpenFile = true;
+        }
+    }
+    // Ask if confirmation is needed
+    const confirmation = await vscode.window.showQuickPick(['Yes', 'No'], { placeHolder: 'Does this command require confirmation?' });
+    const newCommand = {
+        id,
+        command,
+        description,
+        extraFields: Object.keys(extraFields).length > 0 ? extraFields : undefined,
+        applyToOpenFile: applyToOpenFile ? true : undefined,
+        confirmation: confirmation === 'Yes' ? 'yes' : undefined
+    };
     group.commands.push(newCommand);
-    console.log("Group act: ", group);
-    console.log("Command group act: ", commandGroups);
     saveCommands(filePath, commandGroups, context);
 }
-// Función para abrir el editor de comandos
-async function openCommandEditor(filePath, context) {
-    const commandGroups = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const groupOptions = Object.keys(commandGroups).map(groupKey => ({
-        label: commandGroups[groupKey].id
-    }));
-    const selectedGroup = await vscode.window.showQuickPick(groupOptions, { placeHolder: 'Select a command group' });
-    if (!selectedGroup)
-        return;
-    const selectedGroupId = selectedGroup.label;
-    console.log("Selected group: ", selectedGroup);
-    console.log("Selected group id: ", selectedGroupId);
-    console.log("Command groups: ", commandGroups);
-    // Buscar el grupo correspondiente
-    const group = Object.values(commandGroups).find(group => group.id === selectedGroupId);
-    if (!group) {
-        vscode.window.showErrorMessage(`Group with id "${selectedGroupId}" not found.`);
-        return;
-    }
-    console.log("Group: ", group);
+// Function to delete an existing command
+async function deleteCommand(group, filePath, context, commandGroups) {
     const commandOptions = group.commands.map(cmd => ({
         label: cmd.description
     }));
-    commandOptions.push({ label: 'Add new command' });
-    const selectedCommand = await vscode.window.showQuickPick(commandOptions, { placeHolder: 'Select a command to edit or add a new one' });
+    const selectedCommand = await vscode.window.showQuickPick(commandOptions, { placeHolder: 'Select a command to delete' });
     if (!selectedCommand)
         return;
-    if (selectedCommand.label === 'Add new command') {
-        addNewCommand(group, filePath, context, commandGroups);
+    const selectedCmdIndex = group.commands.findIndex(cmd => cmd.description === selectedCommand.label);
+    if (selectedCmdIndex !== -1) {
+        group.commands.splice(selectedCmdIndex, 1);
+        saveCommands(filePath, commandGroups, context);
+    }
+}
+// Function to open the command editor
+async function openCommandEditor(filePath, context) {
+    const commandGroups = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const options = [
+        { label: 'Add new QuickPick' },
+        { label: 'Delete QuickPick' },
+        ...Object.keys(commandGroups).map(key => ({ label: commandGroups[key].id }))
+    ];
+    const selectedOption = await vscode.window.showQuickPick(options, { placeHolder: 'Select an option or QuickPick group' });
+    if (!selectedOption)
+        return;
+    if (selectedOption.label === 'Add new QuickPick') {
+        addNewQuickPick(commandGroups, filePath, context);
+    }
+    else if (selectedOption.label === 'Delete QuickPick') {
+        deleteQuickPick(commandGroups, filePath, context);
     }
     else {
-        const selectedCmd = group.commands.find(cmd => cmd.description === selectedCommand.label);
-        if (selectedCmd) {
-            editCommand(selectedCmd, group, filePath, context, commandGroups);
+        const selectedGroupId = selectedOption.label;
+        const group = Object.values(commandGroups).find(group => group.id === selectedGroupId);
+        if (!group) {
+            vscode.window.showErrorMessage(`Group with id "${selectedGroupId}" not found.`);
+            return;
+        }
+        const commandOptions = group.commands.map(cmd => ({
+            label: cmd.description
+        }));
+        commandOptions.push({ label: 'Add new command' });
+        commandOptions.push({ label: 'Delete command' });
+        const selectedCommand = await vscode.window.showQuickPick(commandOptions, { placeHolder: 'Select a command to edit or add a new one' });
+        if (!selectedCommand)
+            return;
+        if (selectedCommand.label === 'Add new command') {
+            addNewCommand(group, filePath, context, commandGroups);
+        }
+        else if (selectedCommand.label === 'Delete command') {
+            deleteCommand(group, filePath, context, commandGroups);
+        }
+        else {
+            const selectedCmd = group.commands.find(cmd => cmd.description === selectedCommand.label);
+            if (selectedCmd) {
+                editCommand(selectedCmd, group, filePath, context, commandGroups);
+            }
         }
     }
 }
-// Función para editar un comando existente
+// Function to add a new QuickPick
+async function addNewQuickPick(commandGroups, filePath, context) {
+    const id = await vscode.window.showInputBox({ prompt: 'Enter QuickPick ID' });
+    if (!id)
+        return;
+    const realId = "quickPick" + id;
+    commandGroups[realId] = { id, commands: [] };
+    saveCommands(filePath, commandGroups, context);
+}
+// Function to delete an existing QuickPick
+async function deleteQuickPick(commandGroups, filePath, context) {
+    const groupOptions = Object.keys(commandGroups).map(groupKey => ({
+        label: commandGroups[groupKey].id
+    }));
+    const selectedGroup = await vscode.window.showQuickPick(groupOptions, { placeHolder: 'Select a QuickPick to delete' });
+    if (!selectedGroup)
+        return;
+    const selectedGroupId = selectedGroup.label;
+    const realId = "quickPick" + selectedGroupId;
+    delete commandGroups[realId];
+    saveCommands(filePath, commandGroups, context);
+}
+// Function to edit an existing command
 async function editCommand(command, group, filePath, context, commandGroups) {
     const id = await vscode.window.showInputBox({ prompt: 'Enter command ID', value: command.id });
     if (!id)
@@ -224,6 +307,31 @@ async function editCommand(command, group, filePath, context, commandGroups) {
     command.id = id;
     command.command = cmd;
     command.description = description;
+    // Process arguments
+    const argumentMatches = cmd.match(/{(.*?)}/g);
+    const extraFields = {};
+    if (argumentMatches) {
+        for (const match of argumentMatches) {
+            const argName = match.replace(/[{}]/g, '');
+            const prompt = await vscode.window.showInputBox({ prompt: `Enter prompt for ${argName}`, value: command.extraFields?.[argName] || '' });
+            if (prompt) {
+                extraFields[argName] = prompt;
+            }
+        }
+    }
+    command.extraFields = Object.keys(extraFields).length > 0 ? extraFields : undefined;
+    // Check if the command contains {file}
+    let applyToOpenFile = false;
+    if (extraFields.hasOwnProperty('file')) {
+        const useOpenFile = await vscode.window.showQuickPick(['Yes', 'No'], { placeHolder: 'Do you want to apply this command to the currently open file?' });
+        if (useOpenFile === 'Yes') {
+            applyToOpenFile = true;
+        }
+    }
+    command.applyToOpenFile = applyToOpenFile ? true : undefined;
+    // Ask if confirmation is needed
+    const confirmation = await vscode.window.showQuickPick(['Yes', 'No'], { placeHolder: 'Does this command require confirmation?' });
+    command.confirmation = confirmation === 'Yes' ? 'yes' : undefined;
     saveCommands(filePath, commandGroups, context);
 }
 async function executeCommand(command) {
@@ -238,54 +346,48 @@ async function executeCommand(command) {
         else if (command.extraFields && command.extraFields.hasOwnProperty('directory')) {
             for (const [field, prompt] of Object.entries(command.extraFields)) {
                 const userInput = await vscode.window.showInputBox({ prompt });
-                if (!userInput) {
+                if (userInput === undefined) {
                     return;
                 }
                 args[field] = userInput;
-                runCommand(command, args);
-                return;
             }
+            runCommand(command, args);
+            return;
         }
         else {
-            vscode.window.showErrorMessage('Error: getDirectory es true pero extraFields no contiene "directory".');
+            vscode.window.showErrorMessage('Error: getDirectory is true but extraFields does not contain "directory".');
             return;
         }
     }
     if (command.applyToOpenFile) {
-        if (command.extraFields && command.extraFields.hasOwnProperty('file')) {
-            const filePath = getPath();
-            if (filePath) {
-                args['file'] = filePath;
-                for (const [field, prompt] of Object.entries(command.extraFields)) {
-                    if (field !== 'file') {
-                        const userInput = await vscode.window.showInputBox({ prompt });
-                        if (!userInput) {
-                            return;
-                        }
-                        args[field] = userInput;
-                    }
-                }
-            }
-            else {
-                for (const [field, prompt] of Object.entries(command.extraFields)) {
+        if (command.extraFields) {
+            for (const [field, prompt] of Object.entries(command.extraFields)) {
+                if (field !== 'file') {
                     const userInput = await vscode.window.showInputBox({ prompt });
-                    if (!userInput) {
+                    if (userInput === undefined) {
                         return;
                     }
                     args[field] = userInput;
                 }
             }
         }
+        const filePath = getPath();
+        if (filePath) {
+            args['file'] = filePath;
+        }
         else {
-            vscode.window.showErrorMessage('Error: applyToOpenFile es true pero extraFields no contiene "file".');
-            return;
+            const userInput = await vscode.window.showInputBox({ prompt: 'Enter file path' });
+            if (userInput === undefined) {
+                return;
+            }
+            args['file'] = userInput;
         }
     }
     else {
         if (command.extraFields) {
             for (const [field, prompt] of Object.entries(command.extraFields)) {
                 const userInput = await vscode.window.showInputBox({ prompt });
-                if (!userInput) {
+                if (userInput === undefined) {
                     return;
                 }
                 args[field] = userInput;
@@ -293,7 +395,13 @@ async function executeCommand(command) {
         }
     }
     if (command.confirmation === 'yes') {
-        const confirmation = await vscode.window.showWarningMessage(`Are you sure you want to run the command: "${command.command}"?`, { modal: true }, 'Yes', 'No');
+        let confirmationMessage = `Are you sure you want to run the command: "${command.command}"`;
+        // Replace placeholders in the confirmation message
+        Object.keys(args).forEach(key => {
+            const regex = new RegExp(`{${key}}`, 'g');
+            confirmationMessage = confirmationMessage.replace(regex, args[key]);
+        });
+        const confirmation = await vscode.window.showWarningMessage(confirmationMessage, { modal: true }, 'Yes', 'No');
         if (confirmation !== 'Yes') {
             return;
         }
@@ -320,7 +428,6 @@ function getPath() {
     }
     return '';
 }
-exports.getPath = getPath;
 function getDirectory() {
     const editor = vscode.window.activeTextEditor;
     if (editor) {
@@ -331,7 +438,5 @@ function getDirectory() {
     }
     return '';
 }
-exports.getDirectory = getDirectory;
 function deactivate() { }
-exports.deactivate = deactivate;
 //# sourceMappingURL=extension.js.map

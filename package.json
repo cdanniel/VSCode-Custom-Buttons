@@ -2,7 +2,14 @@
   "name": "vscode-custom-buttons",
   "displayName": "VSCode Custom Buttons",
   "description": "Extension to run custom commands with graphical interface",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cdanniel/VSCode-Custom-Buttons"
+  },
+  "bugs": {
+		"url": "https://github.com/cdanniel/VSCode-Custom-Buttons/issues"
+	},
   "engines": {
     "vscode": "^1.89.0"
   },

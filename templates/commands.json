@@ -1,97 +1,98 @@
 {
-    "quickPickNavigation": {
-      "id": "Navigation",
-      "commands": [
-        {
-          "id": "ls",
-          "command": "ls",
-          "description": "List all files in the directory",
-          "confirmation": "no",
-          "applyToOpenFile": false
+  "quickPickNavigation": {
+    "id": "Navigation",
+    "commands": [
+      {
+        "id": "ls",
+        "command": "ls",
+        "description": "List all files in the directory",
+        "confirmation": "no",
+        "applyToOpenFile": false
+      },
+      {
+        "id": "cd",
+        "command": "cd {directory}",
+        "description": "Change directory",
+        "extraFields": {
+          "directory": "Enter the directory"
         },
-        {
-          "id": "cd",
-          "command": "cd {directory}",
-          "description": "Change directory",
-          "extraFields": {
-            "directory": "Enter the directory"
-          },
-          "confirmation": "no",
-          "applyToOpenFile": false
+        "confirmation": "no",
+        "applyToOpenFile": false,
+        "getDirectory" : true
+      },
+      {
+        "id": "pwd",
+        "command": "pwd",
+        "description": "Print the current directory",
+        "confirmation": "no",
+        "applyToOpenFile": false
+      }
+    ]
+  },
+  "quickPickNetwork": {
+    "id": "Network",
+    "commands": [
+      {
+        "id": "ipconfig",
+        "command": "ipconfig",
+        "description": "Display network configuration",
+        "confirmation": "no",
+        "applyToOpenFile": false
+      },
+      {
+        "id": "ping",
+        "command": "ping {hostname}",
+        "description": "Ping a hostname",
+        "extraFields": {
+          "hostname": "Enter the hostname or IP address"
         },
-        {
-          "id": "pwd",
-          "command": "pwd",
-          "description": "Print the current directory",
-          "confirmation": "no",
-          "applyToOpenFile": false
-        }
-      ]
-    },
-    "quickPickNetwork": {
-      "id": "Network",
-      "commands": [
-        {
-          "id": "ipconfig",
-          "command": "ipconfig",
-          "description": "Display network configuration",
-          "confirmation": "no",
-          "applyToOpenFile": false
+        "confirmation": "no",
+        "applyToOpenFile": false
+      },
+      {
+        "id": "tracert",
+        "command": "tracert {hostname}",
+        "description": "Trace route to a hostname",
+        "extraFields": {
+          "hostname": "Enter the hostname or IP address"
         },
-        {
-          "id": "ping",
-          "command": "ping {hostname}",
-          "description": "Ping a hostname",
-          "extraFields": {
-            "hostname": "Enter the hostname or IP address"
-          },
-          "confirmation": "no",
-          "applyToOpenFile": false
+        "confirmation": "no",
+        "applyToOpenFile": false
+      }
+    ]
+  },
+  "quickPickFileOperations": {
+    "id": "File Operations",
+    "commands": [
+      {
+        "id": "findstr",
+        "command": "findstr \"{text}\" {file}",
+        "description": "Search for a text string in a file",
+        "extraFields": {
+          "text": "Enter the text to search",
+          "file": "Enter the file path"
         },
-        {
-          "id": "tracert",
-          "command": "tracert {hostname}",
-          "description": "Trace route to a hostname",
-          "extraFields": {
-            "hostname": "Enter the hostname or IP address"
-          },
-          "confirmation": "no",
-          "applyToOpenFile": false
-        }
-      ]
-    },
-    "quickPickFileOperations": {
-      "id": "File Operations",
-      "commands": [
-        {
-          "id": "findstr",
-          "command": "findstr \"{text}\" {file}",
-          "description": "Search for a text string in a file",
-          "extraFields": {
-            "text": "Enter the text to search",
-            "file": "Enter the file path"
-          },
-          "applyToOpenFile": true
+        "applyToOpenFile": true
+      },
+      {
+        "id": "type",
+        "command": "type {file}",
+        "description": "Display the contents of a file",
+        "extraFields": {
+          "file": "Enter the file path"
         },
-        {
-          "id": "type",
-          "command": "type {file}",
-          "description": "Display the contents of a file",
-          "extraFields": {
-            "file": "Enter the file path"
-          },
-          "applyToOpenFile": true
+        "applyToOpenFile": true
+      },
+      {
+        "id": "del",
+        "command": "del {file}",
+        "description": "Delete a file",
+        "extraFields": {
+          "file": "Enter the file path"
         },
-        {
-          "id": "del",
-          "command": "del {file}",
-          "description": "Delete a file",
-          "extraFields": {
-            "file": "Enter the file path"
-          },
-          "confirmation": "yes",
-          "applyToOpenFile": true
-        }
-      ]
-    }
+        "confirmation": "yes",
+        "applyToOpenFile": true
+      }
+    ]
   }
+}

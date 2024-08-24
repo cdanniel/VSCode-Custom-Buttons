@@ -427,15 +427,24 @@ async function executeCommand(command: Command) {
   }
 
   if (command.confirmation === 'yes') {
+    let confirmationMessage = `Are you sure you want to run the command: "${command.command}"`;
+  
+    // Replace placeholders in the confirmation message
+    Object.keys(args).forEach(key => {
+      const regex = new RegExp(`{${key}}`, 'g');
+      confirmationMessage = confirmationMessage.replace(regex, args[key]);
+    });
+  
     const confirmation = await vscode.window.showWarningMessage(
-      `Are you sure you want to run the command: "${command.command}"?`,
+      confirmationMessage,
       { modal: true },
       'Yes', 'No'
     );
+  
     if (confirmation !== 'Yes') {
       return;
     }
-  }
+  }  
 
   runCommand(command, args);
 }

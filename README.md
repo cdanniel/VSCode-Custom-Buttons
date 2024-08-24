@@ -1,48 +1,154 @@
 # VSCode Custom Buttons Extension
 
-This Visual Studio Code extension adds a series of commands and status bar buttons for custom actions. Below is a detailed description of each command and its functionality.
+This Visual Studio Code extension enhances functionality with custom commands and status bar buttons. Below is a detailed description of each command and its functionality.
 
-## Installation
+## Installation from .vsix
 
-1. Go to the Extensions section.
+1. Navigate to the Extensions section.
 2. Click on the three dots at the top right of the section.
 3. Select `Install from VSIX`.
-4. Select the `.vsix` file.
+4. Choose the `.vsix` file.
+
+## Setting Up Commands
+
+To customize the commands available in the extension, you need to define them in a `commands.json` file. Below is an example structure for the `commands.json` file:
+
+```json
+{
+  "quickPickNavigation": {
+    "id": "Navigation",
+    "commands": [
+      {
+        "id": "ls",
+        "command": "ls",
+        "description": "List all files in the directory",
+        "confirmation": "no",
+        "applyToOpenFile": false
+      },
+      {
+        "id": "cd",
+        "command": "cd {directory}",
+        "description": "Change directory",
+        "extraFields": {
+          "directory": "Enter the directory"
+        },
+        "confirmation": "no",
+        "applyToOpenFile": false
+      },
+      {
+        "id": "pwd",
+        "command": "pwd",
+        "description": "Print the current directory",
+        "confirmation": "no",
+        "applyToOpenFile": false
+      }
+    ]
+  },
+  "quickPickNetwork": {
+    "id": "Network",
+    "commands": [
+      {
+        "id": "ipconfig",
+        "command": "ipconfig",
+        "description": "Display network configuration",
+        "confirmation": "no",
+        "applyToOpenFile": false
+      },
+      {
+        "id": "ping",
+        "command": "ping {hostname}",
+        "description": "Ping a hostname",
+        "extraFields": {
+          "hostname": "Enter the hostname or IP address"
+        },
+        "confirmation": "no",
+        "applyToOpenFile": false
+      },
+      {
+        "id": "tracert",
+        "command": "tracert {hostname}",
+        "description": "Trace route to a hostname",
+        "extraFields": {
+          "hostname": "Enter the hostname or IP address"
+        },
+        "confirmation": "no",
+        "applyToOpenFile": false
+      }
+    ]
+  },
+  "quickPickFileOperations": {
+    "id": "File Operations",
+    "commands": [
+      {
+        "id": "findstr",
+        "command": "findstr \"{text}\" {file}",
+        "description": "Search for a text string in a file",
+        "extraFields": {
+          "text": "Enter the text to search",
+          "file": "Enter the file path"
+        },
+        "applyToOpenFile": true
+      },
+      {
+        "id": "type",
+        "command": "type {file}",
+        "description": "Display the contents of a file",
+        "extraFields": {
+          "file": "Enter the file path"
+        },
+        "applyToOpenFile": true
+      }
+    ]
+  }
+}
+```
+You can also find this `commands.json` example in https://github.com/cdanniel/VSCode-Custom-Buttons/tree/main/templates
 
 ## Custom Commands
 
-You can create custom commands by adding entries to the `commands.json` file. Each command must have the following properties:
+Custom commands can be managed through the graphical interface by adding, modifying, or deleting entries in the `commands.json` file. Each command must include the following properties:
 
 - `id`: Unique identifier for the command.
-- `command`: The actual command to be executed.
+- `command`: The command to execute.
 - `description`: Brief description of the command.
-- `extraFields` (optional): Additional fields to be provided by the user.
-- `confirmation` (optional): Whether to prompt the user for confirmation before executing the command.
-- `applyToOpenFile` (optional): Whether the command should be applied to the currently opened file.
+- `extraFields` (optional): Additional user-defined fields.
+- `confirmation` (optional): Prompt for confirmation before executing.
+- `applyToOpenFile` (optional): Apply command to currently open file.
 
-### Adding New Commands
+### Managing Commands
 
-To add new commands:
+To manage commands:
 
-1. Open the `commands.json` file.
-2. Add a new entry following the structure described above.
-3. Reload the extension for the changes to take effect.
+1. Open the extension's graphical interface (`Edit Commands` button).
+2. Add, modify, or delete commands as needed.
+3. Save changes to `commands.json`.
+4. This proccess automatically save changes to `commands.json` and reload the status-bar
+
+## Custom QuickPicks
+
+QuickPicks can also be managed via the graphical interface by adding, modifying, or deleting entries in `commands.json`.
+
+### Managing QuickPicks
+
+To manage QuickPicks:
+
+1. Open the extension's graphical interface (`Edit Commands` button).
+2. Add, modify, or delete QuickPicks as needed.
+3. This proccess automatically save changes to `commands.json` and reload the status-bar
 
 ## Changelog
 
 ### 0.1.0
 
-- Added initial set of commands and status bar buttons.
+- Initial release with basic functionality.
+- Commands CRUD.
+- QuickPicks CRUD.
 
 ## Known Issues
 
-- Some commands may not work as expected if the environment is not properly configured.
-- Additional permissions or configuration may be required for certain commands.
+- Some commands may require specific environment configurations to function correctly.
+- Certain commands may necessitate additional permissions or configurations.
 
 ## Contributing
 
-If you would like to contribute to the project, please contact us.
-
-## License
-
-TODO
+For contributions, please contact `cdanielsoa@gmail.com` or `jesus.palominoabreu@gmail.com`.
