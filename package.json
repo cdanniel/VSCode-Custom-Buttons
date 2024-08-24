@@ -1,0 +1,57 @@
+{
+  "name": "vscode-custom-buttons",
+  "displayName": "VSCode Custom Buttons",
+  "description": "Extension to run custom commands with graphical interface",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "icon": "resources/logo_prov.jpg",
+  "publisher": "cdanniel",
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+    {
+      "command": "vscode-custom-buttons.openCommandEditor",
+      "title": "Open Command Editor"
+    }
+    ],  
+    "configuration": {
+      "type": "object",
+      "title": "VSCode Custom Buttons Configuration",
+      "properties": {
+        "vscode-custom-buttons.commandsFilePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the commands.json file"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.89.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@typescript-eslint/eslint-plugin": "^7.7.1",
+    "@typescript-eslint/parser": "^7.7.1",
+    "eslint": "^8.57.0",
+    "glob": "^10.3.2",
+    "mocha": "^10.2.0",
+    "typescript": "^5.0.4",
+    "@vscode/test-electron": "^2.3.3"
+  }
+}
