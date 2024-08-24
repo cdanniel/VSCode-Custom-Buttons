@@ -117,9 +117,22 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(separatorItem);
 }
 
-function updateQuickPicks(context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }) {
-  // Eliminar todas las suscripciones actuales
-  context.subscriptions.forEach(subscription => subscription.dispose());
+function updateQuickPicks(context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, filePath: string) {
+  // Filtrar y mantener solo las tres primeras suscripciones
+  const retainedSubscriptions = context.subscriptions.slice(0, 3);
+
+  // Eliminar todas las suscripciones actuales excepto las retenidas
+  context.subscriptions.forEach((subscription, index) => {
+    if (!retainedSubscriptions.includes(subscription)) {
+      subscription.dispose();
+    }
+  });
+
+  // Actualizar el array de suscripciones en el contexto
+  context.subscriptions.length = 0; // Vaciar el array actual
+  context.subscriptions.push(...retainedSubscriptions); // Añadir las suscripciones mantenidas
+
+  //console.log("Subscriptions antes: ", context.subscriptions);
 
   // Registrar de nuevo los comandos y QuickPicks
   Object.keys(commandGroups).forEach(groupKey => {
@@ -153,16 +166,19 @@ function updateQuickPicks(context: vscode.ExtensionContext, commandGroups: { [ke
     separatorItem.show();
     context.subscriptions.push(separatorItem);
   });
+
+  //console.log("Subscriptions despues: ", context.subscriptions);
 }
+
 
 // Función para guardar los comandos en el archivo
 function saveCommands(filePath: string, commandGroups: { [key: string]: QuickPickGroup }, context: vscode.ExtensionContext) {
   try {
     fs.writeFileSync(filePath, JSON.stringify(commandGroups, null, 2));
     vscode.window.showInformationMessage('Commands saved successfully');
-    updateQuickPicks(context, commandGroups);
+    updateQuickPicks(context, commandGroups, filePath);
   } catch (e) {
-    vscode.window.showErrorMessage('Error saving commands.json');
+    vscode.window.showErrorMessage('Error saving commands.json: ' + e);
   }
 }
 
@@ -183,6 +199,22 @@ async function addNewCommand(group: QuickPickGroup, filePath: string, context: v
   console.log("Group act: ", group);
   console.log("Command group act: ", commandGroups);
   saveCommands(filePath, commandGroups, context);
+}
+
+// Función para eliminar un comando existente
+async function deleteCommand(group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }) {
+  const commandOptions: vscode.QuickPickItem[] = group.commands.map(cmd => ({
+    label: cmd.description
+  }));
+
+  const selectedCommand = await vscode.window.showQuickPick(commandOptions, { placeHolder: 'Select a command to delete' });
+  if (!selectedCommand) return;
+
+  const selectedCmdIndex = group.commands.findIndex(cmd => cmd.description === selectedCommand.label);
+  if (selectedCmdIndex !== -1) {
+    group.commands.splice(selectedCmdIndex, 1);
+    saveCommands(filePath, commandGroups, context);
+  }
 }
 
 // Función para abrir el editor de comandos
@@ -215,12 +247,15 @@ async function openCommandEditor(filePath: string, context: vscode.ExtensionCont
   }));
 
   commandOptions.push({ label: 'Add new command' });
+  commandOptions.push({ label: 'Delete command' });
 
   const selectedCommand = await vscode.window.showQuickPick(commandOptions, { placeHolder: 'Select a command to edit or add a new one' });
   if (!selectedCommand) return;
 
   if (selectedCommand.label === 'Add new command') {
     addNewCommand(group, filePath, context, commandGroups);
+  } else if (selectedCommand.label === 'Delete command') {
+    deleteCommand(group, filePath, context, commandGroups);
   } else {
     const selectedCmd = group.commands.find(cmd => cmd.description === selectedCommand.label);
     if (selectedCmd) {
