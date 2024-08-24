@@ -252,42 +252,40 @@ async function openCommandEditor(filePath: string, context: vscode.ExtensionCont
     { label: 'Delete QuickPick' },
     ...Object.keys(commandGroups).map(key => ({ label: commandGroups[key].id }))
   ];
+const selectedOption = await vscode.window.showQuickPick(options, { placeHolder: 'Select an option or QuickPick group' });
+if (!selectedOption) return;
 
-  const selectedOption = await vscode.window.showQuickPick(options, { placeHolder: 'Select an option or QuickPick group' });
-  if (!selectedOption) return;
+if (selectedOption.label === 'Add new QuickPick') {
+  addNewQuickPick(commandGroups, filePath, context);
+} else if (selectedOption.label === 'Delete QuickPick') {
+  deleteQuickPick(commandGroups, filePath, context);
+} else {
+  const selectedGroupId = selectedOption.label;
 
-  if (selectedOption.label === 'Add new QuickPick') {
-    addNewQuickPick(commandGroups, filePath, context);
-  } else if (selectedOption.label === 'Delete QuickPick') {
-    deleteQuickPick(commandGroups, filePath, context);
+  const group = Object.values(commandGroups).find(group => group.id === selectedGroupId);
+  if (!group) {
+    vscode.window.showErrorMessage(`Group with id "${selectedGroupId}" not found.`);
+    return;
+  }
+
+  const commandOptions: vscode.QuickPickItem[] = group.commands.map(cmd => ({
+    label: cmd.description
+  }));
+
+  commandOptions.push({ label: 'Add new command' });
+  commandOptions.push({ label: 'Delete command' });
+
+  const selectedCommand = await vscode.window.showQuickPick(commandOptions, { placeHolder: 'Select a command to edit or add a new one' });
+  if (!selectedCommand) return;
+
+  if (selectedCommand.label === 'Add new command') {
+    addNewCommand(group, filePath, context, commandGroups);
+  } else if (selectedCommand.label === 'Delete command') {
+    deleteCommand(group, filePath, context, commandGroups);
   } else {
-    const selectedGroupId = selectedOption.label;
-
-    const group = Object.values(commandGroups).find(group => group.id === selectedGroupId);
-    if (!group) {
-      vscode.window.showErrorMessage(`Group with id "${selectedGroupId}" not found.`);
-      return;
-    }
-
-    const commandOptions: vscode.QuickPickItem[] = group.commands.map(cmd => ({
-      label: cmd.description
-    }));
-
-    commandOptions.push({ label: 'Add new command' });
-    commandOptions.push({ label: 'Delete command' });
-
-    const selectedCommand = await vscode.window.showQuickPick(commandOptions, { placeHolder: 'Select a command to edit or add a new one' });
-    if (!selectedCommand) return;
-
-    if (selectedCommand.label === 'Add new command') {
-      addNewCommand(group, filePath, context, commandGroups);
-    } else if (selectedCommand.label === 'Delete command') {
-      deleteCommand(group, filePath, context, commandGroups);
-    } else {
-      const selectedCmd = group.commands.find(cmd => cmd.description === selectedCommand.label);
-      if (selectedCmd) {
-        editCommand(selectedCmd, group, filePath, context, commandGroups);
-      }
+    const selectedCmd = group.commands.find(cmd => cmd.description === selectedCommand.label);
+    if (selectedCmd) {
+      editCommand(selectedCmd, group, filePath, context, commandGroups);
     }
   }
 }
@@ -299,7 +297,7 @@ async function addNewQuickPick(commandGroups: { [key: string]: QuickPickGroup },
 
   const realId = "quickPick" + id;
 
-  commandGroups[realId] = { id, commands: [] };
+  commandGroups[realId] = { id: realId, commands: [] };
   saveCommands(filePath, commandGroups, context);
 }
 
@@ -317,6 +315,7 @@ async function deleteQuickPick(commandGroups: { [key: string]: QuickPickGroup },
   delete commandGroups[realId];
   saveCommands(filePath, commandGroups, context);
 }
+
 
 // Función para editar un comando existente
 async function editCommand(command: Command, group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }) {
