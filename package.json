@@ -13,7 +13,7 @@
   "engines": {
     "vscode": "^1.89.0"
   },
-  "icon": "resources/logo_prov.jpg",
+  "icon": "resources/vscode-custom-buttons.png",
   "publisher": "cdanniel",
   "categories": [
     "Other"
