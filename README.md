@@ -136,6 +136,10 @@ To manage QuickPicks:
 2. Add, modify, or delete QuickPicks as needed.
 3. This proccess automatically save changes to `commands.json` and reload the status-bar
 
+## Use example
+
+![Tutorial](./resources/tutorial.gif)
+
 ## Changelog
 
 ### 0.1.0
