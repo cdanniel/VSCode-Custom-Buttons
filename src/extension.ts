@@ -89,11 +89,46 @@ export async function activate(context: vscode.ExtensionContext) {
   let filePath = configuration.get<string>('commandsFilePath');
 
   if (!filePath) {
-    filePath = await loadCommandsFromFile();
-    if (filePath) {
-      await configuration.update('commandsFilePath', filePath, vscode.ConfigurationTarget.Global);
+    const hasCommandFile = await vscode.window.showQuickPick(['Yes', 'No'], {
+      placeHolder: 'Do you have a commands.json file ready?',
+    });
+
+    if (hasCommandFile === 'Yes') {
+      const openUri = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        openLabel: 'Select commands.json',
+        filters: {
+          'JSON files': ['json'],
+        },
+      });
+
+      if (openUri && openUri[0]) {
+        filePath = openUri[0].fsPath;
+        await configuration.update('commandsFilePath', filePath, vscode.ConfigurationTarget.Global);
+      } else {
+        vscode.window.showErrorMessage('No file selected. Extension will not activate.');
+        return;
+      }
+    } else if (hasCommandFile === 'No') {
+      const saveUri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(path.join(context.extensionPath, 'commands.json')),
+        saveLabel: 'Save commands.json',
+        filters: {
+          'JSON files': ['json'],
+        },
+      });
+
+      if (saveUri) {
+        filePath = saveUri.fsPath;
+        const templateFilePath = path.join(context.extensionPath, 'templates', 'commands.json');
+        fs.copyFileSync(templateFilePath, filePath);
+        await configuration.update('commandsFilePath', filePath, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage('commands.json file created at ' + filePath);
+      } else {
+        vscode.window.showErrorMessage('No location selected. Extension will not activate.');
+        return;
+      }
     } else {
-      vscode.window.showErrorMessage('No commands.json file selected.');
       return;
     }
   }
@@ -101,21 +136,23 @@ export async function activate(context: vscode.ExtensionContext) {
   readCommandsFile(filePath, context);
 
   const commandEditor = vscode.commands.registerCommand('vscode-custom-buttons.openCommandEditor', () => {
-    openCommandEditor(filePath, context);
+    openCommandEditor(filePath!, context);
   });
   context.subscriptions.push(commandEditor);
 
-  // Add button to the status bar to open the command editor
   const editorButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   editorButton.command = 'vscode-custom-buttons.openCommandEditor';
   editorButton.text = 'Edit Commands';
   editorButton.show();
   context.subscriptions.push(editorButton);
+
   const separatorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   separatorItem.text = '|';
   separatorItem.show();
   context.subscriptions.push(separatorItem);
 }
+
+
 
 function updateQuickPicks(context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, filePath: string) {
   // Filter and keep only the first three subscriptions
