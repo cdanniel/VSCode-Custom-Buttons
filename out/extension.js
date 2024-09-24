@@ -109,19 +109,31 @@ function createInstantButtons(filePath, context) {
             const commandData = JSON.parse(data);
             const instantButtons = commandData.instantButtons || [];
             console.log('Instant Buttons encontrados:', instantButtons.length);
+            context.subscriptions.forEach(subscription => {
+                if (subscription.dispose) { // Verificación alternativa
+                    subscription.dispose();
+                }
+            });
             if (instantButtons.length > 0) {
-                instantButtons.forEach(button => {
-                    console.log('Creando Instant Button:', button.description);
-                    const instantButtonCommand = vscode.commands.registerCommand(`extension.instantButton${button.id}`, () => {
-                        executeCommand(button);
-                    });
-                    context.subscriptions.push(instantButtonCommand);
-                    const instantButtonItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-                    instantButtonItem.command = `extension.instantButton${button.id}`;
-                    instantButtonItem.text = button.description;
-                    instantButtonItem.show();
-                    context.subscriptions.push(instantButtonItem);
-                    console.log('Instant Button creado:', button.description);
+                instantButtons.forEach(async (button) => {
+                    // Verificar si el comando ya existe
+                    const commandId = `extension.instantButton${button.id}`;
+                    if (!(await vscode.commands.getCommands()).includes(commandId)) {
+                        console.log('Creando Instant Button:', button.description);
+                        const instantButtonCommand = vscode.commands.registerCommand(commandId, () => {
+                            executeCommand(button);
+                        });
+                        context.subscriptions.push(instantButtonCommand);
+                        const instantButtonItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+                        instantButtonItem.command = commandId;
+                        instantButtonItem.text = button.description;
+                        instantButtonItem.show();
+                        context.subscriptions.push(instantButtonItem);
+                        console.log('Instant Button creado:', button.description);
+                    }
+                    else {
+                        console.log('El comando ya existe:', commandId);
+                    }
                 });
                 const separatorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
                 separatorItem.text = '|';
