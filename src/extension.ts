@@ -34,18 +34,37 @@ async function loadCommandsFromFile(): Promise<string | undefined> {
   }
 }
 
-// Function to read commands file
 function readCommandsFile(filePath: string, context: vscode.ExtensionContext) {
   fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) {
-      vscode.window.showErrorMessage('Error reading commands.json');
+      vscode.window.showErrorMessage('Error leyendo commands.json');
       return;
     }
 
     try {
-      const commandGroups: { [key: string]: QuickPickGroup } = JSON.parse(data);
+      const commandDataG = JSON.parse(data);
+      const commandDataI = JSON.parse(data);
+      const commandGroups: { [key: string]: QuickPickGroup } = {};
+      const instantButtons: { [key: string]: Command } = {};
 
-      // Create QuickPicks and commands
+      // Iterar sobre todas las propiedades que comienzan con "quickPick"
+      Object.keys(commandDataG).forEach(key => {
+        if (key.startsWith('quickPick')) {
+          commandGroups[key] = commandDataG[key];
+        }
+      });
+
+      // Iterar sobre todas las propiedades que comienzan con "instantButton"
+      Object.keys(commandDataI).forEach(key => {
+        if (key.startsWith('instantButton')) {
+          instantButtons[key] = commandDataI[key];
+        }
+      });
+
+      console.log('QuickPicks encontrados:', Object.keys(commandGroups));
+      console.log('InstantButton encontrados:', Object.keys(instantButtons));
+
+      // Crear QuickPicks
       Object.keys(commandGroups).forEach(groupKey => {
         const group = commandGroups[groupKey];
 
@@ -55,7 +74,7 @@ function readCommandsFile(filePath: string, context: vscode.ExtensionContext) {
             description: command.command
           }));
 
-          const selection = await vscode.window.showQuickPick(options, { placeHolder: `Select a command from ${group.id}` });
+          const selection = await vscode.window.showQuickPick(options, { placeHolder: `Selecciona un comando de ${group.id}` });
           if (selection) {
             const selectedCommand = group.commands.find(cmd => cmd.description === selection.label);
             if (selectedCommand) {
@@ -72,13 +91,44 @@ function readCommandsFile(filePath: string, context: vscode.ExtensionContext) {
         statusBarItem.show();
         context.subscriptions.push(statusBarItem);
 
+        console.log(`QuickPick creado: ${group.id}`);
+
         const separatorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
         separatorItem.text = '|';
         separatorItem.show();
         context.subscriptions.push(separatorItem);
       });
+
+      // Crear instantButtons
+      Object.keys(instantButtons).forEach(buttonKey => {
+        const button = instantButtons[buttonKey];
+        console.log("Button ", button);
+
+        const instantCommand = vscode.commands.registerCommand(`extension.show${button.id}`, () => {
+          executeCommand(button);
+        });
+
+        console.log("instantButton pre: ", instantCommand);
+
+        context.subscriptions.push(instantCommand);
+
+        const statusBarButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+        statusBarButton.command = `extension.show${button.id}`;
+        statusBarButton.text = button.id;
+        statusBarButton.show();
+        context.subscriptions.push(statusBarButton);
+
+        console.log(`InstantButton creado: ${button.id}`);
+
+        const separatorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+        separatorItem.text = '|';
+        separatorItem.show();
+        context.subscriptions.push(separatorItem);
+      });
+
     } catch (e) {
-      vscode.window.showErrorMessage('Error parsing commands.json');
+      vscode.window.showErrorMessage('Error analizando commands.json');
+      console.error('Error analizando commands.json:', e);
     }
   });
 }
