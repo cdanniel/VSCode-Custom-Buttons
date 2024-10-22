@@ -204,7 +204,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 
 
-function updateQuickPicks(context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, filePath: string) {
+function updateAll(context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, instantButtons: { [key: string]: Command }, filePath: string) {
   // Filter and keep only the first three subscriptions
   const retainedSubscriptions = context.subscriptions.slice(0, 3);
 
@@ -250,22 +250,101 @@ function updateQuickPicks(context: vscode.ExtensionContext, commandGroups: { [ke
     separatorItem.text = '|';
     separatorItem.show();
     context.subscriptions.push(separatorItem);
+    
+  });
+
+  // Re-register instantButtons
+  Object.keys(instantButtons).forEach(buttonKey => {
+    const button = instantButtons[buttonKey];
+    console.log("Button ", button);
+
+    const instantCommand = vscode.commands.registerCommand(`extension.show${button.id}`, () => {
+      executeCommand(button);
+    });
+
+    context.subscriptions.push(instantCommand);
+
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.command = `extension.show${button.id}`;
+    statusBarItem.text = button.id;
+    statusBarItem.show();
+    context.subscriptions.push(statusBarItem);
+
+    const separatorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    separatorItem.text = '|';
+    separatorItem.show();
+    context.subscriptions.push(separatorItem);
   });
 }
 
-// Function to save commands to file
-function saveCommands(filePath: string, commandGroups: { [key: string]: QuickPickGroup }, context: vscode.ExtensionContext) {
+function updateInstantButtons(context: vscode.ExtensionContext, instantButtons: { [key: string]: Command }, filePath: string) {
+  // Filter and keep only the first three subscriptions
+  const retainedSubscriptions = context.subscriptions.slice(0, 3);
+
+  // Filtrar las suscripciones que empiezan por 'instantButton'
+  const filteredSubscriptions = context.subscriptions.filter(subscription => {
+    const command = (subscription as vscode.StatusBarItem)?.command || '';
+    //return command.startsWith('extension.showinstantButton');
+  });
+
+  // Dispose of all current subscriptions except the retained ones
+  context.subscriptions.forEach((subscription, index) => {
+    if (!retainedSubscriptions.includes(subscription)) {
+      subscription.dispose();
+    }
+  });
+
+  // Clear the subscriptions array in the context
+  context.subscriptions.length = 0; // Clear the current array
+  context.subscriptions.push(...retainedSubscriptions); // Add the retained subscriptions
+
+  // Re-register commands and QuickPicks
+  Object.keys(instantButtons).forEach(buttonKey => {
+    const button = instantButtons[buttonKey];
+    console.log("Button ", button);
+
+    const instantCommand = vscode.commands.registerCommand(`extension.show${button.id}`, () => {
+      executeCommand(button);
+    });
+
+    context.subscriptions.push(instantCommand);
+
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.command = `extension.show${button.id}`;
+    statusBarItem.text = button.id;
+    statusBarItem.show();
+    context.subscriptions.push(statusBarItem);
+
+    const separatorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    separatorItem.text = '|';
+    separatorItem.show();
+    context.subscriptions.push(separatorItem);
+  });
+}
+
+// Función para guardar todos los quickPicks e instantButtons en el archivo
+function saveAll(filePath: string, commandGroups: { [key: string]: QuickPickGroup }, context: vscode.ExtensionContext, instantButtons: { [key: string]: Command }) {
   try {
-    fs.writeFileSync(filePath, JSON.stringify(commandGroups, null, 2));
+    // Combina los commandGroups e instantButtons en un solo objeto
+    const combinedData = {
+      ...commandGroups,  // Mantiene todos los grupos de comandos
+      ...instantButtons  // Añade los botones instantáneos
+    };
+
+    // Escribir el objeto combinado en el archivo
+    fs.writeFileSync(filePath, JSON.stringify(combinedData, null, 2));
+
     vscode.window.showInformationMessage('Commands saved successfully');
-    updateQuickPicks(context, commandGroups, filePath);
+    
+    // Actualizar todos los elementos (barra de estado, comandos, etc.)
+    updateAll(context, commandGroups, instantButtons, filePath);
   } catch (e) {
     vscode.window.showErrorMessage('Error saving commands.json: ' + e);
   }
 }
 
 // Function to add a new command
-async function addNewCommand(group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }) {
+async function addNewCommand(group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, instantButtons: { [key: string]: Command }) {
   const id = await vscode.window.showInputBox({ prompt: 'Enter command ID' });
   if (!id) return;
 
@@ -310,12 +389,16 @@ async function addNewCommand(group: QuickPickGroup, filePath: string, context: v
     confirmation: confirmation === 'Yes' ? 'yes' : undefined
   };
 
-  group.commands.push(newCommand);
-  saveCommands(filePath, commandGroups, context);
+  if (group.commands.length > 0) {  
+    group.commands.push(newCommand);
+    saveAll(filePath, commandGroups, context, instantButtons);
+  } else {
+    return newCommand;
+  }
 }
 
 // Function to delete an existing command
-async function deleteCommand(group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }) {
+async function deleteCommand(group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, instantButtons: { [key: string]: Command }) {
   const commandOptions: vscode.QuickPickItem[] = group.commands.map(cmd => ({
     label: cmd.description
   }));
@@ -326,40 +409,70 @@ async function deleteCommand(group: QuickPickGroup, filePath: string, context: v
   const selectedCmdIndex = group.commands.findIndex(cmd => cmd.description === selectedCommand.label);
   if (selectedCmdIndex !== -1) {
     group.commands.splice(selectedCmdIndex, 1);
-    saveCommands(filePath, commandGroups, context);
+    saveAll(filePath, commandGroups, context, instantButtons);
   }
 }
 
 // Function to open the command editor
 async function openCommandEditor(filePath: string, context: vscode.ExtensionContext) {
-  const commandGroups: { [key: string]: QuickPickGroup } = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  // Leer el archivo y obtener los datos JSON
+  const allData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+
+  // Filtrar solo los que empiezan con 'quickPick' para commandGroups
+  const commandGroups: { [key: string]: QuickPickGroup } = {};
+  Object.keys(allData).forEach(key => {
+    if (key.startsWith('quickPick')) {
+      commandGroups[key] = allData[key];
+    }
+  });
+
+  // Filtrar solo los que empiezan con 'instantButton' para instantButtons
+  const instantButtons: { [key: string]: Command } = {};
+  Object.keys(allData).forEach(key => {
+    if (key.startsWith('instantButton')) {
+      instantButtons[key] = allData[key];
+    }
+  });
 
   const options: vscode.QuickPickItem[] = [
     { label: 'Add new QuickPick' },
     { label: 'Delete QuickPick' },
-    ...Object.keys(commandGroups).map(key => ({ label: commandGroups[key].id }))
+    { label: 'Edit QuickPick' },
+    { label: 'Add Instant Button' }
   ];
 
-  const selectedOption = await vscode.window.showQuickPick(options, { placeHolder: 'Select an option or QuickPick group' });
+  // Mostrar el QuickPick para seleccionar una opción o grupo
+  const selectedOption = await vscode.window.showQuickPick(options, { placeHolder: 'Select an option' });
   if (!selectedOption) return;
 
   if (selectedOption.label === 'Add new QuickPick') {
-    addNewQuickPick(commandGroups, filePath, context);
+    addNewQuickPick(commandGroups, filePath, context, instantButtons);
   } else if (selectedOption.label === 'Delete QuickPick') {
-    deleteQuickPick(commandGroups, filePath, context);
-  } else {
-    const selectedGroupId = selectedOption.label;
+    deleteQuickPick(commandGroups, filePath, context, instantButtons);
+  } else if (selectedOption.label === 'Edit QuickPick') {
+    // Primero se lista todos los QuickPicks disponibles
+    const quickPickOptions: vscode.QuickPickItem[] = Object.keys(commandGroups).map(key => ({ 
+      label: commandGroups[key].id 
+    }));
 
+    const selectedQuickPick = await vscode.window.showQuickPick(quickPickOptions, { placeHolder: 'Select a QuickPick group to edit' });
+    if (!selectedQuickPick) return;
+
+    // Seleccionado el grupo, se sigue con el flujo de edición
+    const selectedGroupId = selectedQuickPick.label;
     const group = Object.values(commandGroups).find(group => group.id === selectedGroupId);
+
     if (!group) {
       vscode.window.showErrorMessage(`Group with id "${selectedGroupId}" not found.`);
       return;
     }
 
+    // Listar los comandos dentro del QuickPick seleccionado
     const commandOptions: vscode.QuickPickItem[] = group.commands.map(cmd => ({
       label: cmd.description
     }));
 
+    // Añadir opciones adicionales para añadir o eliminar comandos
     commandOptions.push({ label: 'Add new command' });
     commandOptions.push({ label: 'Delete command' });
 
@@ -367,31 +480,33 @@ async function openCommandEditor(filePath: string, context: vscode.ExtensionCont
     if (!selectedCommand) return;
 
     if (selectedCommand.label === 'Add new command') {
-      addNewCommand(group, filePath, context, commandGroups);
+      addNewCommand(group, filePath, context, commandGroups, instantButtons);
     } else if (selectedCommand.label === 'Delete command') {
-      deleteCommand(group, filePath, context, commandGroups);
+      deleteCommand(group, filePath, context, commandGroups, instantButtons);
     } else {
       const selectedCmd = group.commands.find(cmd => cmd.description === selectedCommand.label);
       if (selectedCmd) {
-        editCommand(selectedCmd, group, filePath, context, commandGroups);
+        editCommand(selectedCmd, group, filePath, context, commandGroups, instantButtons);
       }
     }
+  } else {
+    addInstantButton(instantButtons, filePath, context, commandGroups);
   }
 }
 
 // Function to add a new QuickPick
-async function addNewQuickPick(commandGroups: { [key: string]: QuickPickGroup }, filePath: string, context: vscode.ExtensionContext) {
+async function addNewQuickPick(commandGroups: { [key: string]: QuickPickGroup }, filePath: string, context: vscode.ExtensionContext, instantButtons: { [key: string]: Command }) {
   const id = await vscode.window.showInputBox({ prompt: 'Enter QuickPick ID' });
   if (!id) return;
 
   const realId = "quickPick" + id;
 
   commandGroups[realId] = { id, commands: [] };
-  saveCommands(filePath, commandGroups, context);
+  saveAll(filePath, commandGroups, context, instantButtons);
 }
 
 // Function to delete an existing QuickPick
-async function deleteQuickPick(commandGroups: { [key: string]: QuickPickGroup }, filePath: string, context: vscode.ExtensionContext) {
+async function deleteQuickPick(commandGroups: { [key: string]: QuickPickGroup }, filePath: string, context: vscode.ExtensionContext, instantButtons: { [key: string]: Command }) {
   const groupOptions: vscode.QuickPickItem[] = Object.keys(commandGroups).map(groupKey => ({
     label: commandGroups[groupKey].id
   }));
@@ -402,11 +517,28 @@ async function deleteQuickPick(commandGroups: { [key: string]: QuickPickGroup },
   const selectedGroupId = selectedGroup.label;
   const realId = "quickPick" + selectedGroupId;
   delete commandGroups[realId];
-  saveCommands(filePath, commandGroups, context);
+  saveAll(filePath, commandGroups, context, instantButtons);
+}
+
+async function addInstantButton(instantButtons: { [key: string]: Command }, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }) {
+  // Crea un group y un commandGroups vacio para pasarselo a la funcion addNewCommand
+  const group = { id: "instantButton", commands: [] };
+  const commandGroupsFake = { "instantButton": group };
+  const command = await addNewCommand(group, filePath, context, commandGroupsFake, instantButtons);
+  if (!command) return;
+  console.log("Command: ", command);
+
+  const realId = "instantButton" + command.id;
+
+  instantButtons[realId] = command;
+  console.log("InstantButtons lista: ", instantButtons);
+
+  saveAll(filePath, commandGroups, context, instantButtons);
+
 }
 
 // Function to edit an existing command
-async function editCommand(command: Command, group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }) {
+async function editCommand(command: Command, group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, instantButtons: { [key: string]: Command }) {
   const id = await vscode.window.showInputBox({ prompt: 'Enter command ID', value: command.id });
   if (!id) return;
 
@@ -451,7 +583,7 @@ async function editCommand(command: Command, group: QuickPickGroup, filePath: st
   const confirmation = await vscode.window.showQuickPick(['Yes', 'No'], { placeHolder: 'Does this command require confirmation?' });
   command.confirmation = confirmation === 'Yes' ? 'yes' : undefined;
 
-  saveCommands(filePath, commandGroups, context);
+  saveAll(filePath, commandGroups, context, instantButtons);
 }
 
 async function executeCommand(command: Command) {
