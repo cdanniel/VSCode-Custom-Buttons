@@ -18,7 +18,7 @@
         },
         "confirmation": "no",
         "applyToOpenFile": false,
-        "getDirectory" : true
+        "getDirectory": true
       },
       {
         "id": "pwd",
@@ -94,5 +94,14 @@
         "applyToOpenFile": true
       }
     ]
+  },
+  "instantButtonfindstr": {
+    "id": "type",
+    "command": "type {file}",
+    "description": "Find the string at the file",
+    "extraFields": {
+      "file": "Enter the file"
+    },
+    "applyToOpenFile": true
   }
 }

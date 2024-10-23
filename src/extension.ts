@@ -74,6 +74,12 @@ function readCommandsFile(filePath: string, context: vscode.ExtensionContext) {
             description: command.command
           }));
 
+          if (!options.length) {
+            vscode.window.showInformationMessage('No commands found in this QuickPick, you can add one from the Edit Commands button');
+            console.log('No commands found in this QuickPick');
+            return;
+          }
+
           const selection = await vscode.window.showQuickPick(options, { placeHolder: `Selecciona un comando de ${group.id}` });
           if (selection) {
             const selectedCommand = group.commands.find(cmd => cmd.description === selection.label);
@@ -228,6 +234,12 @@ function updateAll(context: vscode.ExtensionContext, commandGroups: { [key: stri
         label: command.description,
         description: command.command
       }));
+
+      if (!options.length) {
+        vscode.window.showInformationMessage('No commands found in this QuickPick, you can add one from the Edit Commands button');
+        console.log('No commands found in this QuickPick');
+        return;
+      }
 
       const selection = await vscode.window.showQuickPick(options, { placeHolder: `Select a command from ${group.id}` });
       if (selection) {
@@ -389,11 +401,11 @@ async function addNewCommand(group: QuickPickGroup, filePath: string, context: v
     confirmation: confirmation === 'Yes' ? 'yes' : undefined
   };
 
-  if (group.commands.length > 0) {  
+  if (group.id === "instantButton") {  
+    return newCommand;
+  } else {
     group.commands.push(newCommand);
     saveAll(filePath, commandGroups, context, instantButtons);
-  } else {
-    return newCommand;
   }
 }
 
@@ -409,6 +421,27 @@ async function deleteCommand(group: QuickPickGroup, filePath: string, context: v
   const selectedCmdIndex = group.commands.findIndex(cmd => cmd.description === selectedCommand.label);
   if (selectedCmdIndex !== -1) {
     group.commands.splice(selectedCmdIndex, 1);
+    saveAll(filePath, commandGroups, context, instantButtons);
+  }
+}
+
+async function deleteInstantButton(instantButtons: { [key: string]: Command }, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }) {
+  const buttonOptions: vscode.QuickPickItem[] = Object.keys(instantButtons).map(buttonKey => ({
+    label: instantButtons[buttonKey].description
+  }));
+
+  if (!buttonOptions.length) {
+    vscode.window.showInformationMessage('No instant buttons found, you can add one from the Edit Commands button');
+    console.log('No instant buttons found');
+    return;
+  }
+
+  const selectedButton = await vscode.window.showQuickPick(buttonOptions, { placeHolder: 'Select an instant button to delete' });
+  if (!selectedButton) return;
+
+  const selectedButtonIndex = Object.values(instantButtons).findIndex(button => button.description === selectedButton.label);
+  if (selectedButtonIndex !== -1) {
+    delete instantButtons[Object.keys(instantButtons)[selectedButtonIndex]];
     saveAll(filePath, commandGroups, context, instantButtons);
   }
 }
@@ -438,7 +471,9 @@ async function openCommandEditor(filePath: string, context: vscode.ExtensionCont
     { label: 'Add new QuickPick' },
     { label: 'Delete QuickPick' },
     { label: 'Edit QuickPick' },
-    { label: 'Add Instant Button' }
+    { label: 'Add Instant Button' },
+    { label: 'Delete Instant Button' },
+    { label: 'Edit Instant Button' }
   ];
 
   // Mostrar el QuickPick para seleccionar una opción o grupo
@@ -454,6 +489,12 @@ async function openCommandEditor(filePath: string, context: vscode.ExtensionCont
     const quickPickOptions: vscode.QuickPickItem[] = Object.keys(commandGroups).map(key => ({ 
       label: commandGroups[key].id 
     }));
+
+    if (!quickPickOptions.length) {
+      vscode.window.showInformationMessage('No QuickPicks found, you can add one from the Edit Commands button');
+      console.log('No QuickPicks found');
+      return;
+    }
 
     const selectedQuickPick = await vscode.window.showQuickPick(quickPickOptions, { placeHolder: 'Select a QuickPick group to edit' });
     if (!selectedQuickPick) return;
@@ -486,11 +527,34 @@ async function openCommandEditor(filePath: string, context: vscode.ExtensionCont
     } else {
       const selectedCmd = group.commands.find(cmd => cmd.description === selectedCommand.label);
       if (selectedCmd) {
-        editCommand(selectedCmd, group, filePath, context, commandGroups, instantButtons);
+        editCommand(selectedCmd, filePath, context, commandGroups, instantButtons);
       }
     }
-  } else {
+  } else if (selectedOption.label === 'Add Instant Button') {
     addInstantButton(instantButtons, filePath, context, commandGroups);
+  } else if (selectedOption.label === 'Delete Instant Button') {
+    deleteInstantButton(instantButtons, filePath, context, commandGroups);
+  } else if (selectedOption.label === 'Edit Instant Button') { 
+    // Listar todos los instantButtons disponibles
+    const buttonOptions: vscode.QuickPickItem[] = Object.values(instantButtons).map(button => ({ 
+      label: button.description,
+      description: button.command
+    }));
+
+    if (!buttonOptions.length) {
+      vscode.window.showInformationMessage('No instant buttons found, you can add one from the Edit Commands button');
+      console.log('No instant buttons found');
+      return;
+    }
+
+    const selectedButton = await vscode.window.showQuickPick(buttonOptions, { placeHolder: 'Select an instant button to edit' });
+    if (!selectedButton) return;
+
+    const selectedButtonIndex = Object.values(instantButtons).findIndex(button => button.description === selectedButton.label);
+    if (selectedButtonIndex !== -1) {
+      const button = Object.values(instantButtons)[selectedButtonIndex];
+      editCommand(button, filePath, context, commandGroups, instantButtons);
+    }
   }
 }
 
@@ -499,17 +563,25 @@ async function addNewQuickPick(commandGroups: { [key: string]: QuickPickGroup },
   const id = await vscode.window.showInputBox({ prompt: 'Enter QuickPick ID' });
   if (!id) return;
 
-  const realId = "quickPick" + id;
+  const realId = "quickPick" + id.replace(/\s+/g, '');
 
-  commandGroups[realId] = { id, commands: [] };
+  commandGroups[realId] = { id: realId.replace("quickPick", ""), commands: [] };
+
   saveAll(filePath, commandGroups, context, instantButtons);
 }
+
 
 // Function to delete an existing QuickPick
 async function deleteQuickPick(commandGroups: { [key: string]: QuickPickGroup }, filePath: string, context: vscode.ExtensionContext, instantButtons: { [key: string]: Command }) {
   const groupOptions: vscode.QuickPickItem[] = Object.keys(commandGroups).map(groupKey => ({
     label: commandGroups[groupKey].id
   }));
+
+  if (!groupOptions.length) {
+    vscode.window.showInformationMessage('No QuickPicks found, you can add one from the Edit Commands button');
+    console.log('No QuickPicks found');
+    return;
+  }
 
   const selectedGroup = await vscode.window.showQuickPick(groupOptions, { placeHolder: 'Select a QuickPick to delete' });
   if (!selectedGroup) return;
@@ -528,7 +600,7 @@ async function addInstantButton(instantButtons: { [key: string]: Command }, file
   if (!command) return;
   console.log("Command: ", command);
 
-  const realId = "instantButton" + command.id;
+  const realId = "instantButton" + command.id.replace(/\s+/g, '');
 
   instantButtons[realId] = command;
   console.log("InstantButtons lista: ", instantButtons);
@@ -538,7 +610,7 @@ async function addInstantButton(instantButtons: { [key: string]: Command }, file
 }
 
 // Function to edit an existing command
-async function editCommand(command: Command, group: QuickPickGroup, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, instantButtons: { [key: string]: Command }) {
+async function editCommand(command: Command, filePath: string, context: vscode.ExtensionContext, commandGroups: { [key: string]: QuickPickGroup }, instantButtons: { [key: string]: Command }) {
   const id = await vscode.window.showInputBox({ prompt: 'Enter command ID', value: command.id });
   if (!id) return;
 
