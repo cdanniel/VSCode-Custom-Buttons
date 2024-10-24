@@ -1,6 +1,6 @@
 # VSCode Custom Buttons Extension
 
-This Visual Studio Code extension enhances functionality with custom commands and status bar buttons. Below is a detailed description of each command and its functionality.
+This Visual Studio Code extension enhances functionality with custom commands and status bar buttons. You can execute any type of command by clicking on a button in the status bar or group a set of commands in quickPicks.
 
 ## Installation from .vsix
 
@@ -25,14 +25,14 @@ Custom commands can be managed through the graphical interface by adding, modify
 - `confirmation` (optional): Prompt for confirmation before executing.
 - `applyToOpenFile` (optional): Apply command to currently open file.
 
-### Managing Commands
+### Managing Instant Buttons
 
 To manage commands:
 
 1. Open the extension's graphical interface (`Edit Commands` button).
-2. Add, modify, or delete commands as needed.
-3. Save changes to `commands.json`.
-4. This proccess automatically save changes to `commands.json` and reload the status-bar
+2. Add, modify, or delete instant buttons as needed.
+3. Save changes.
+4. This proccess automatically save changes to `commands.json` and reload the status-bar.
 
 ## Custom QuickPicks
 
